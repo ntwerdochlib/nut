@@ -304,14 +304,14 @@ static int libusb_open(usb_dev_handle **udevp,
 				}
 			}
 
-			upsdebugx(2, "- VendorID: %04x", curDevice->VendorID);
-			upsdebugx(2, "- ProductID: %04x", curDevice->ProductID);
-			upsdebugx(2, "- Manufacturer: %s", curDevice->Vendor ? curDevice->Vendor : "unknown");
-			upsdebugx(2, "- Product: %s", curDevice->Product ? curDevice->Product : "unknown");
-			upsdebugx(2, "- Serial Number: %s", curDevice->Serial ? curDevice->Serial : "unknown");
-			upsdebugx(2, "- Bus: %s", curDevice->Bus ? curDevice->Bus : "unknown");
-			upsdebugx(2, "- Device: %s", curDevice->Device ? curDevice->Device : "unknown");
-			upsdebugx(2, "- Device release number: %04x", curDevice->bcdDevice);
+			upsdebugx(2, "0 - VendorID: %04x", curDevice->VendorID);
+			upsdebugx(2, "0 - ProductID: %04x", curDevice->ProductID);
+			upsdebugx(2, "0 - Manufacturer: %s", curDevice->Vendor ? curDevice->Vendor : "unknown");
+			upsdebugx(2, "0 - Product: %s", curDevice->Product ? curDevice->Product : "unknown");
+			upsdebugx(2, "0 - Serial Number: %s", curDevice->Serial ? curDevice->Serial : "unknown");
+			upsdebugx(2, "0 - Bus: %s", curDevice->Bus ? curDevice->Bus : "unknown");
+			upsdebugx(2, "0 - Device: %s", curDevice->Device ? curDevice->Device : "unknown");
+			upsdebugx(2, "0 - Device release number: %04x", curDevice->bcdDevice);
 
 			/* FIXME: extend to Eaton OEMs (HP, IBM, ...) */
 			if ((curDevice->VendorID == 0x463) && (curDevice->bcdDevice == 0x0202)) {

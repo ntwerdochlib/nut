@@ -1545,6 +1545,9 @@ void upsdrv_makevartable(void)
 		MAX_VOLT);
 	addvar(VAR_VALUE, "battery_max", msg);
 
+	snprintf(msg, sizeof msg, "Unit ID for UPS");
+	addvar(VAR_VALUE, "unit_id", msg);
+
 #if 0
 	snprintf(msg, sizeof msg, "Set start delay, in seconds (default=%d).",
 		DEFAULT_STARTDELAY);
@@ -1555,6 +1558,27 @@ void upsdrv_makevartable(void)
 #endif
 }
 
+
+static int libusb1_open_callback(libusb_device_handle *udev, USBDevice_t *hd, usb_ctrl_charbuf rdbuf, usb_ctrl_charbufsize rdlen)
+{
+	/* get the unit id */
+	const unsigned char u_msg[] = "U";
+	unsigned char u_value[9] = {0};
+	char *value = NULL;
+
+	value = getval("unit_id");
+	if (!value) {
+		return 1;
+	}
+	const long expected_unit_id = atol(value);
+	int ret = send_cmd(u_msg, sizeof(u_msg), u_value, sizeof(u_value)-1);
+	if(ret <= 0) {
+		upslogx(LOG_INFO, "Unit ID not retrieved (not available on all models)");
+		return 0;
+	}
+	return (int)(expected_unit_id == (long)((unsigned)(u_value[1]) << 8) | (unsigned)(u_value[2]));
+}
+
 /*!@brief Initialize UPS and variables from ups.conf
  *
  * @todo Allow binding based on firmware version (which seems to vary wildly
@@ -1562,7 +1586,7 @@ void upsdrv_makevartable(void)
  */
 void upsdrv_initups(void)
 {
-	char *regex_array[7];
+	char *regex_array[7] = {0};
 	char *value;
 	int r;
 
@@ -1575,7 +1599,9 @@ void upsdrv_initups(void)
 	regex_array[3] = getval("product"); /* product string */
 	regex_array[4] = getval("serial"); /* probably won't see this */
 	regex_array[5] = getval("bus");
-	regex_array[6] = getval("device");
+	//regex_array[6] = getval("device");
+
+	//upslogx(1, "device: %s", regex_array[6]);
 
 	r = USBNewRegexMatcher(&regex_matcher, regex_array, REG_ICASE | REG_EXTENDED);
 	if (r==-1) {
@@ -1589,7 +1615,7 @@ void upsdrv_initups(void)
 
 	/* Search for the first supported UPS matching the regular
 	 * expression */
-	r = comm_driver->open_dev(&udev, &curDevice, regex_matcher, NULL);
+	r = comm_driver->open_dev(&udev, &curDevice, regex_matcher, &libusb1_open_callback);
 	if (r < 1) {
 		fatalx(EXIT_FAILURE, "No matching USB/HID UPS found");
 	}

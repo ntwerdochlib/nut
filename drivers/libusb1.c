@@ -231,6 +231,10 @@ static int nut_libusb_open(libusb_device_handle **udevp,
 		curDevice->ProductID = dev_desc.idProduct;
 		curDevice->bcdDevice = dev_desc.bcdDevice;
 
+		int devaddr = libusb_get_device_address(device);
+		curDevice->Device = (char *)malloc(4);
+		sprintf(curDevice->Device, "%03d", devaddr);
+
 		if (dev_desc.iManufacturer) {
 			retries = MAX_RETRY;
 			while (retries > 0) {
@@ -285,14 +289,14 @@ static int nut_libusb_open(libusb_device_handle **udevp,
 			}
 		}
 
-		upsdebugx(2, "- VendorID: %04x", curDevice->VendorID);
-		upsdebugx(2, "- ProductID: %04x", curDevice->ProductID);
-		upsdebugx(2, "- Manufacturer: %s", curDevice->Vendor ? curDevice->Vendor : "unknown");
-		upsdebugx(2, "- Product: %s", curDevice->Product ? curDevice->Product : "unknown");
-		upsdebugx(2, "- Serial Number: %s", curDevice->Serial ? curDevice->Serial : "unknown");
-		upsdebugx(2, "- Bus: %s", curDevice->Bus ? curDevice->Bus : "unknown");
-		upsdebugx(2, "- Device: %s", curDevice->Device ? curDevice->Device : "unknown");
-		upsdebugx(2, "- Device release number: %04x", curDevice->bcdDevice);
+		upsdebugx(2, "1 - VendorID: %04x", curDevice->VendorID);
+		upsdebugx(2, "1 - ProductID: %04x", curDevice->ProductID);
+		upsdebugx(2, "1 - Manufacturer: %s", curDevice->Vendor ? curDevice->Vendor : "unknown");
+		upsdebugx(2, "1 - Product: %s", curDevice->Product ? curDevice->Product : "unknown");
+		upsdebugx(2, "1 - Serial Number: %s", curDevice->Serial ? curDevice->Serial : "unknown");
+		upsdebugx(2, "1 - Bus: %s", curDevice->Bus ? curDevice->Bus : "unknown");
+		upsdebugx(2, "1 - Device: %s", curDevice->Device ? curDevice->Device : "unknown");
+		upsdebugx(2, "1 - Device release number: %04x", curDevice->bcdDevice);
 
 		/* FIXME: extend to Eaton OEMs (HP, IBM, ...) */
 		if ((curDevice->VendorID == 0x463) && (curDevice->bcdDevice == 0x0202)) {
@@ -371,38 +375,42 @@ static int nut_libusb_open(libusb_device_handle **udevp,
 			upsdebugx(2, "failed to claim USB device: %s",
 				libusb_strerror((enum libusb_error)ret));
 
+			int ret2;
 # ifdef HAVE_LIBUSB_DETACH_KERNEL_DRIVER
-				if ((ret = libusb_detach_kernel_driver(udev, usb_subdriver.hid_rep_index)) != LIBUSB_SUCCESS) {
+			if ((ret2 = libusb_detach_kernel_driver(udev, usb_subdriver.hid_rep_index)) != LIBUSB_SUCCESS) {
 # else /* if defined HAVE_LIBUSB_DETACH_KERNEL_DRIVER_NP) */
-				if ((ret = libusb_detach_kernel_driver_np(udev, usb_subdriver.hid_rep_index)) != LIBUSB_SUCCESS) {
+			if ((ret2 = libusb_detach_kernel_driver_np(udev, usb_subdriver.hid_rep_index)) != LIBUSB_SUCCESS) {
 # endif
-				if (ret == LIBUSB_ERROR_NOT_FOUND)
+				if (ret2 == LIBUSB_ERROR_NOT_FOUND)
 					upsdebugx(2, "Kernel driver already detached");
 				else
 					upsdebugx(1, "failed to detach kernel driver from USB device: %s",
-						libusb_strerror((enum libusb_error)ret));
+						libusb_strerror((enum libusb_error)ret2));
 			} else {
 				upsdebugx(2, "detached kernel driver from USB device...");
 			}
 
-			if (retries-- > 0) {
+			if (retries-- > 0 && ret != LIBUSB_ERROR_BUSY) {
 				continue;
 			}
 
 			libusb_free_config_descriptor(conf_desc);
-			libusb_free_device_list(devlist, 1);
-			fatalx(EXIT_FAILURE,
+			// libusb_free_device_list(devlist, 1);
+			upslog_with_errno(LOG_WARNING,
+			//fatalx(EXIT_FAILURE,
 				"Can't claim USB device [%04x:%04x]@%d/%d: %s",
 				curDevice->VendorID, curDevice->ProductID,
 				usb_subdriver.hid_rep_index,
 				usb_subdriver.hid_desc_index,
 				libusb_strerror((enum libusb_error)ret));
+			break;
 		}
 #else
 		if ((ret = libusb_claim_interface(udev, usb_subdriver.hid_rep_index)) != LIBUSB_SUCCESS ) {
 			libusb_free_config_descriptor(conf_desc);
-			libusb_free_device_list(devlist, 1);
-			fatalx(EXIT_FAILURE,
+			// libusb_free_device_list(devlist, 1);
+			upslog_with_errno(LOG_WARNING,
+			// fatalx(EXIT_FAILURE,
 				"Can't claim USB device [%04x:%04x]@%d/%d: %s",
 				curDevice->VendorID, curDevice->ProductID,
 				usb_subdriver.hid_rep_index,
@@ -410,6 +418,11 @@ static int nut_libusb_open(libusb_device_handle **udevp,
 				libusb_strerror((enum libusb_error)ret));
 		}
 #endif
+
+		if (ret != LIBUSB_SUCCESS) {
+			continue;
+		}
+
 		/* if_claimed = 1; */
 		upsdebugx(2, "Claimed interface %d successfully",
 			usb_subdriver.hid_rep_index);

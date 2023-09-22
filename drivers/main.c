@@ -198,6 +198,8 @@ static void storeval(const char *var, char *val)
 {
 	vartab_t	*tmp, *last;
 
+	upslogx(1, "%s: var: %s, val: %s", __func__, var, val);
+
 	if (!strncasecmp(var, "override.", 9)) {
 		dstate_setinfo(var+9, "%s", val);
 		dstate_setflags(var+9, ST_FLAG_IMMUTABLE);
@@ -704,6 +706,7 @@ int main(int argc, char **argv)
 
 				read_upsconf();
 
+				printf("UPS Name: %s - Found: %d\n", upsname, upsname_found);
 				if (!upsname_found)
 					fatalx(EXIT_FAILURE, "Error: Section %s not found in ups.conf",
 						optarg);
